@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpoDJ — Spotify Authentication</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0f1116;
+        color: #f1f5f9;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 24px;
+      }
+      .card {
+        max-width: 420px;
+        width: 100%;
+        background: #171a22;
+        border: 1px solid #262b38;
+        border-radius: 12px;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .status-err {
+        color: #f87171;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1 id="heading">Completing Spotify sign-in…</h1>
+      <p id="message">Passing authorization back to SpoDJ. This window should close automatically.</p>
+    </div>
+    <script>
+      (function () {
+        var searchParams = new URLSearchParams(window.location.search);
+        var payload = {
+          type: 'SPODJ_OAUTH_CALLBACK',
+          code: searchParams.get('code'),
+          state: searchParams.get('state'),
+          error: searchParams.get('error'),
+          errorDescription: searchParams.get('error_description'),
+        };
+
+        var heading = document.getElementById('heading');
+        var message = document.getElementById('message');
+
+        if (payload.error) {
+          heading.textContent = 'Spotify authorization cancelled or failed';
+          message.textContent = payload.errorDescription || payload.error;
+          message.className = 'status-err';
+        }
+
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(payload, window.location.origin);
+          } catch (e) {
+            window.opener.postMessage(payload, '*');
+          }
+          setTimeout(function () {
+            window.close();
+          }, payload.error ? 1200 : 200);
+        } else {
+          // Direct navigation fallback (outside popup): return to app root relative to /auth/callback
+          var forward = new URLSearchParams();
+          if (payload.code) forward.set('code', payload.code);
+          if (payload.state) forward.set('state', payload.state);
+          if (payload.error) forward.set('error', payload.error);
+          if (payload.errorDescription) forward.set('error_description', payload.errorDescription);
+
+          var baseDir = window.location.pathname
+            .replace(/\/index\.html$/i, '')
+            .replace(/\/auth\/callback\/?$/i, '');
+          var appRoot = new URL((baseDir || '') + '/', window.location.origin);
+          if (forward.toString()) {
+            appRoot.search = forward.toString();
+          }
+          window.location.replace(appRoot.toString());
+        }
+      })();
+    </script>
+  </body>
+</html>
